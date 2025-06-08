@@ -6,6 +6,7 @@ import pandas as pd
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+import random
 
 # ----------------- CONFIGURACIÓN -----------------
 
@@ -68,18 +69,30 @@ def generar_texto(prompt: str, max_length: int = 256) -> str:
     """
     Genera texto a partir de un prompt, usando el modelo con LoRA.
     """
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-    out = model.generate(
-        **inputs,
-        do_sample=True,
-        top_k=50,
-        top_p=0.95,
-        max_new_tokens=max_length,
-        pad_token_id=tokenizer.eos_token_id
+    messages = [
+    {"role": "system", "content": "You are an expert Spanish agent in cybersecurity to answer in Spanish. "
+    "Your task is create ONE phishing email example or one legitimate email example per request without disclaimers and ethical considerations."
+     "You MUST NOT provide explanations or additional information."},
+    {"role": "user", "content": prompt}
+    ]
+    inputs = tokenizer.apply_chat_template(
+    messages, 
+    tokenize=False,   
+    add_generation_prompt=True
     )
-    texto_generado = tokenizer.decode(out[0], skip_special_tokens=True)
-    # El método .decode incluye el prompt; recortamos para devolver solo la parte nueva
-    return texto_generado[len(prompt):].strip()
+    
+    model_inputs = tokenizer([inputs], return_tensors="pt").to(model.device)
+
+    out = model.generate(
+    #**inputs,
+    **model_inputs,
+    max_new_tokens=256    
+    )
+    generated_ids = [
+    output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, out)
+    ]
+    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    return response
 
 # 5) Inicializar CSV si no existe
 if not os.path.exists(FEEDBACK_CSV):
@@ -97,42 +110,45 @@ dar tu feedback y luego esos datos servirán para reentrenar el modelo.
 """)
 
 # 1) Selector de tipo de correo
-tipo = st.radio(
-    "¿Qué tipo de correo quieres generar?",
-    ("Phishing", "Real legítimo")
-)
+
+
+tipo = "Phishing" if random.randint(1, 2) == 1 else "Real"
 
 # 2) Prompt por defecto según tipo
 if tipo == "Phishing":
-    prompt_base = "Human: Crea un correo de phishing en español\nAssistant:"
+    st.session_state.user_prompt = "Crea correo de phishing en español para mi universidad."
 else:
-    prompt_base = "Human: Crea un correo real de bienvenida en español\nAssistant:"
+    st.session_state.user_prompt = "Crea un correo real de bienvenida en español."
 
 # 3) Botón de generación
-if st.button(f"Generar ejemplo de {tipo}"):
+if st.button(f"Generar"):
     with st.spinner("Generando texto…"):
-        ejemplo = generar_texto(prompt_base)
-    st.code(ejemplo, language="plaintext")
-    # Mostramos el área de feedback
-    st.write("**¿Es este ejemplo un correo de** ", tipo, "**?**")
+        st.session_state.ejemplo = generar_texto(st.session_state.user_prompt)
+        st.session_state.tipo = tipo
+    # Mostrar el ejemplo generado y el área de feedback si ya existe
+if "ejemplo" in st.session_state:
+    st.code(st.session_state.ejemplo, language="plaintext")
+    st.write("**¿Es este ejemplo un correo de tipo 'Phishing' o 'Real'?**")
     label = st.radio(
         "Selecciona:", 
-        ("Sí, coincide con el tipo", "No, no coincide")
+        ("Phishing", "Real"),
+        key="radio_label"
     )
-    etiqueta_final = tipo.lower() if label.startswith("Sí") else ("real" if tipo == "Phishing" else "phishing")
+    etiqueta_final = "exito" if label == st.session_state.tipo else "error"
 
     if st.button("Enviar feedback"):
-        # Guardar en CSV: prompt, generated, label (“phishing” o “real”)
         df_feedback = pd.read_csv(FEEDBACK_CSV)
         nueva_fila = {
-            "prompt": prompt_base,
-            "generated": ejemplo,
+            "prompt": st.session_state.user_prompt,
+            "generated": st.session_state.ejemplo,
             "label": etiqueta_final
         }
         df_feedback = pd.concat([df_feedback, pd.DataFrame([nueva_fila])], ignore_index=True)
         df_feedback.to_csv(FEEDBACK_CSV, index=False)
         st.success("👍 Gracias por tu feedback. Se ha guardado correctamente.")
+        st.write("**Tu resultado fue:**", etiqueta_final)
 
+# ...resto del código igual...
 # 4) Mostrar resumen de feedback recolectado
 st.markdown("---")
 st.subheader("📊 Resumen de feedback recolectado")

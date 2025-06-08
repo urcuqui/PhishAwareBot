@@ -17,7 +17,7 @@ PhishAwareBot is a Streamlit-based web application that generates and displays t
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.13+
 - See `requirements.txt` for all dependencies.
 
 ## Installation
