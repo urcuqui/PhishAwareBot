@@ -91,7 +91,7 @@ def generar_texto(prompt: str, max_length: int = 256) -> str:
     generated_ids = [
     output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, out)
     ]
-    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0] #encoder y decoder
     return response
 
 # 5) Inicializar CSV si no existe
@@ -116,7 +116,7 @@ tipo = "Phishing" if random.randint(1, 2) == 1 else "Real"
 
 # 2) Prompt por defecto según tipo
 if tipo == "Phishing":
-    st.session_state.user_prompt = "Crea correo de phishing en español para mi universidad."
+    st.session_state.user_prompt = "Crea un correo de phishing en español para un estudiante universitario."
 else:
     st.session_state.user_prompt = "Crea un correo real de bienvenida en español."
 

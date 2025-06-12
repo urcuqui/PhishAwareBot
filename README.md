@@ -2,6 +2,13 @@
 
 PhishAwareBot is a Streamlit-based web application that generates and displays two types of emails: one phishing and one legitimate (benign), both in Spanish. The user is challenged to identify which email is phishing and which is benign, providing feedback to help raise awareness about phishing tactics.
 
+
+## Demo
+
+See PhishAwareBot in action:  
+<img src="demo4.gif" alt="PhishAwareBot Demo" width="600"/>
+
+
 ## Features
 
 - **AI-Generated Emails:** Uses a TinyLlama-based language model to generate realistic phishing and benign emails in Spanish.
